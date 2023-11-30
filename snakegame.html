@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      background-image: url('bgimage.jpg');
+      background-size: cover;
+      overflow: hidden;
+    }
+
+    canvas {
+      border: 1px solid red;
+      touch-action: none;
+    }
+
+    #gameOverModal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      align-items: center;
+      justify-content: center;
+    }
+
+    #gameOverContent {
+      background: #fff;
+      padding: 20px;
+      text-align: center;
+      border-radius: 5px;
+    }
+
+    #startButton {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      padding: 10px 20px;
+      font-size: 18px;
+      cursor: pointer;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+    }
+  </style>
+  <title>Snake Game</title>
+</head>
+
+<body>
+  <canvas id="snakeCanvas"></canvas>
+  <button id="startButton" onclick="startGame()">Start Game</button>
+  <div id="gameOverModal">
+    <div id="gameOverContent">
+      <h2>Game Over!</h2>
+      <p>Your score is: <span id="scoreDisplay">0</span></p>
+      <button onclick="retryGame()">Retry</button>
+    </div>
+  </div>
+  <script>
+    const canvas = document.getElementById("snakeCanvas");
+    const ctx = canvas.getContext("2d");
+
+    let boxSize;
+    let snake;
+    let food;
+    let score;
+    let gameInterval;
+
+    function initializeGame() {
+      boxSize = 20;
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+
+      snake = [{
+        x: Math.floor(canvas.width / (2 * boxSize)),
+        y: Math.floor(canvas.height / (2 * boxSize))
+      }];
+      food = {
+        x: Math.floor(Math.random() * (canvas.width / boxSize)),
+        y: Math.floor(Math.random() * (canvas.height / boxSize))
+      };
+      score = 0;
+
+      draw();
+    }
+
+    function draw() {
+      // Draw background
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#009900";
+      snake.forEach(segment => {
+        ctx.fillRect(segment.x * boxSize, segment.y * boxSize, boxSize, boxSize);
+      });
+
+      // Draw a red circle for the food
+      ctx.fillStyle = "#FF0000";
+      ctx.beginPath();
+      ctx.arc((food.x + 0.5) * boxSize, (food.y + 0.5) * boxSize, boxSize / 2, 0, 2 * Math.PI);
+      ctx.fill();
+
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "20px Arial";
+      ctx.fillText("Score: " + score, 10, 20);
+    }
+
+    function move() {
+      const head = {
+        ...snake[0]
+      };
+      switch (direction) {
+        case "UP":
+          head.y--;
+          break;
+        case "DOWN":
+          head.y++;
+          break;
+        case "LEFT":
+          head.x--;
+          break;
+        case "RIGHT":
+          head.x++;
+          break;
+      }
+
+      if (head.x === food.x && head.y === food.y) {
+        score++;
+        generateFood();
+      } else {
+        snake.pop();
+      }
+
+      if (
+        head.x < 0 ||
+        head.x >= canvas.width / boxSize ||
+        head.y < 0 ||
+        head.y >= canvas.height / boxSize ||
+        checkCollision(head, snake)
+      ) {
+        showGameOverModal();
+        clearInterval(gameInterval);
+        return;
+      }
+
+      snake.unshift(head);
+      draw();
+    }
+
+    function checkCollision(head, array) {
+      return array.some(segment => segment.x === head.x && segment.y === head.y);
+    }
+
+    function generateFood() {
+      food = {
+        x: Math.floor(Math.random() * (canvas.width / boxSize)),
+        y: Math.floor(Math.random() * (canvas.height / boxSize))
+      };
+
+      while (checkCollision(food, snake)) {
+        food = {
+          x: Math.floor(Math.random() * (canvas.width / boxSize)),
+          y: Math.floor(Math.random() * (canvas.height / boxSize))
+        };
+      }
+    }
+
+    function showGameOverModal() {
+      document.getElementById("scoreDisplay").innerText = score;
+      document.getElementById("gameOverModal").style.display = "flex";
+    }
+
+    function retryGame() {
+      document.getElementById("gameOverModal").style.display = "none";
+      initializeGame();
+      gameInterval = setInterval(move, 100);
+    }
+
+    let direction = "RIGHT";
+
+    document.addEventListener("keydown", e => {
+      switch (e.key) {
+        case "ArrowUp":
+          if (direction !== "DOWN") direction = "UP";
+          break;
+        case "ArrowDown":
+          if (direction !== "UP") direction = "DOWN";
+          break;
+        case "ArrowLeft":
+          if (direction !== "RIGHT") direction = "LEFT";
+          break;
+        case "ArrowRight":
+          if (direction !== "LEFT") direction = "RIGHT";
+          break;
+      }
+    });
+
+    let touchStartX = 0;
+    let touchStartY = 0;
+
+    document.addEventListener("touchstart", handleTouchStart, false);
+    document.addEventListener("touchmove", handleTouchMove, false);
+
+    function handleTouchStart(event) {
+      touchStartX = event.touches[0].clientX;
+      touchStartY = event.touches[0].clientY;
+    }
+
+    function handleTouchMove(event) {
+      if (!touchStartX || !touchStartY) {
+        return;
+      }
+
+      const touchEndX = event.touches[0].clientX;
+      const touchEndY = event.touches[0].clientY;
+
+      const deltaX = touchEndX - touchStartX;
+      const deltaY = touchEndY - touchStartY;
+
+      if (Math.abs(deltaX) > Math.abs(deltaY)) {
+        // horizontal swipe
+        if (deltaX > 0 && direction !== "LEFT") {
+          direction = "RIGHT";
+        } else if (deltaX < 0 && direction !== "RIGHT") {
+          direction = "LEFT";
+        }
+      } else {
+        // vertical swipe
+        if (deltaY > 0 && direction !== "UP") {
+          direction = "DOWN";
+        } else if (deltaY < 0 && direction !== "DOWN") {
+          direction = "UP";
+        }
+      }
+
+      // reset touch start coordinates
+      touchStartX = 0;
+      touchStartY = 0;
+    }
+
+    function startGame() {
+      document.getElementById("startButton").style.display = "none";
+      initializeGame();
+      gameInterval = setInterval(move, 100);
+    }
+
+    window.addEventListener("resize", () => {
+      initializeGame();
+    });
+
+    // Initial setup
+    // generateFood(); // Removed this to show the start button initially
+  </script>
+</body>
+
+</html>
